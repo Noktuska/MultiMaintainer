@@ -47,6 +47,7 @@ function aspectMaintainer:craftAspectIfNeeded(aspect, amount, me)
     aspect.timeoutTick = 0
 
     aspect.stocked = amount
+    aspect.dirty = true
 
     if aspect.status and aspect.status.isDone() then
         aspect.statusVal = self.enumStatus.idle
@@ -102,7 +103,7 @@ end
 
 function aspectMaintainer:getRenderTable(width)
     return {
-        { x = 3, label = "Aspect", get = function(item)
+        { x = 6, label = "Aspect", get = function(item)
             local res = item.label
             if item.disabled then res = res .. " (D)" end
             return res
@@ -119,16 +120,15 @@ function aspectMaintainer:createItemForm(inputForm, item)
     inputForm.addField("stock", "To Stock", item and tostring(item.toStock) or "0", inputForm.anyNumber)
     inputForm.addField("batch", "Batch size", item and tostring(item.batch) or "0", inputForm.anyNumber)
     inputForm.addField("group", "Group", item and item.groupLabel)
+    inputForm.addField("alert", "Alert", item and item.alert)
     return function(res)
         if res then
-            if res["stock"] < 0 or res["batch"] < 1 then return end
-            item = item or self:addItem(res["label"], tonumber(res["stock"]), tonumber(res["batch"]), res["group"])
-            item.label = res["label"]
-            item.toStock = tonumber(res["stock"])
-            item.batch = tonumber(res["batch"])
-            if item.groupLabel ~= res["group"] then
-                self:moveGroup(item.label, item.groupLabel, res["group"])
-            end
+            local stock = tonumber(res["stock"]) or -1
+            local batch = tonumber(res["batch"]) or -1
+            if stock < 0 or batch < 1 then return end
+            if item then self:removeItem(item.label, item.groupLabel) end
+            item = self:addItem(res["label"], stock, batch, res["group"])
+            item.alert = tonumber(res["alert"])
             item.dirty = true
         end
     end

@@ -8,6 +8,7 @@ local inputForm = {
 
 local evTouch = nil
 local evKey = nil
+local evClipboard = nil
 local minWidth = 1
 local minHeight = 1
 local focusIndex = 1
@@ -61,8 +62,10 @@ function inputForm.clear()
     minHeight = 1
     if evTouch then event.cancel(evTouch) end
     if evKey then event.cancel(evKey) end
+    if evClipboard then event.cancel(evClipboard) end
     evTouch = nil
     evKey = nil
+    evClipboard = nil
     focusIndex = 1
     fieldAccept = nil
     fieldCancel = nil
@@ -134,6 +137,11 @@ function inputForm.create(gpu, config, callback)
         if char >= 32 and char <= 126 then focus.str = focus.str..string.char(char) end
         if code == keyboard.keys.back and #focus.str > 0 then focus.str = string.sub(focus.str, 1, #focus.str - 1) end
         render(gpu, cfg)
+    end)
+    evClipboard = event.listen("clipboard", function(_, _, str, _)
+        local focus = fields[focusIndex]
+        if not focus then return end
+        focus.str = focus.str .. str
     end)
 end
 

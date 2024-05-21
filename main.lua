@@ -45,7 +45,7 @@ local config = {
 
 local function createConfigMenu(cfg)
     if not cfg then return end
-    for _, v in pairs(cfg) do
+    for k, v in pairs(cfg) do
         local str = nil
         local matcher = function(_) return true end
         if v.type == "hex" then
@@ -58,13 +58,13 @@ local function createConfigMenu(cfg)
         elseif v.type == "string" then
             str = v.value
         end
-        inputForm.addField(v.desc, str, matcher)
+        inputForm.addField(k, v.desc or v.label, str, matcher)
     end
     inputForm.create(gpu, nil, function(res)
         if res then
             for k, v in pairs(cfg) do
-                if res[v.desc] then
-                    local value = res[v.desc]
+                if res[k] then
+                    local value = res[k]
                     if v.type == "hex" then cfg[k].value = tonumber(value, 16) or cfg[k].value
                     elseif v.type == "int" then cfg[k].value = tonumber(value) or cfg[k].value
                     elseif v.type == "string" then cfg[k].value = value end
@@ -82,7 +82,8 @@ local tabs = {
     aspect_maintainer = 2,
     bee_maintainer = 3,
     config = 4,
-    size = 4,
+    config_maintainer = 5,
+    size = 5,
 }
 tabs[1] = {
     label = "Items",
@@ -107,7 +108,7 @@ tabs[4] = {
 tabs[5] = {
     label = "Maintainer Config",
     maintainer = nil,
-    callback = function() createConfigMenu(tabs[curMenu].maintainer) end
+    callback = function() createConfigMenu(tabs[curMenu].maintainer.config) end
 }
 
 local searchStr = ""
@@ -125,8 +126,9 @@ local function saveData()
     for i = 1, tabs.size do
         local maintainer = tabs[i].maintainer
         if maintainer then
-            data[maintainer.label].data = maintainer:serialize()
-            data[maintainer.label].config = maintainer.config
+            data[tabs[i].label] = {}
+            data[tabs[i].label].data = maintainer:serialize()
+            data[tabs[i].label].config = maintainer.config
         end
     end
 
@@ -148,9 +150,9 @@ local function loadData()
     end
     for i = 1, tabs.size do
         local maintainer = tabs[i].maintainer
-        if maintainer and data[maintainer.label] then
-            maintainer:unserialize(data[maintainer.label].data)
-            for k, v in pairs(data[maintainer.label].config) do
+        if maintainer and data[tabs[i].label] then
+            maintainer:unserialize(data[tabs[i].label].data)
+            for k, v in pairs(data[tabs[i].label].config) do
                 maintainer.config[k] = v
             end
         end
@@ -175,28 +177,31 @@ function main.drawTabs()
     for i = 1, tabs.size do
         local tab = tabs[i]
         if i == sel then
-            gpu.setBackground(config.mainBg)
-            gpu.setForeground(config.mainFg)
+            gpu.setBackground(config.mainBg.value)
+            gpu.setForeground(config.mainFg.value)
         else
-            gpu.setBackground(config.tabsBgUnsel)
-            gpu.setForeground(config.tabsFgUnsel)
+            gpu.setBackground(config.tabsBgUnsel.value)
+            gpu.setForeground(config.tabsFgUnsel.value)
         end
         local val = " "..tab.label.." "
         gpu.set(x, 1, val)
         local newx = x + #val
-        eventHandler.registerButton("bt"..val, eventHandler.rect(x, 1, newx - x, 1), tab.callback)
+        eventHandler.registerButton("bt"..val, eventHandler.rect(x, 1, newx - x, 1), function()
+            tab.callback()
+            needRedraw = true
+        end)
         x = newx
     end
 end
 
 function main.drawSearchbar()
-    gpu.setBackground(config.mainBg)
+    gpu.setBackground(config.mainBg.value)
     gpu.fill(1, 2, w, 1, " ")
     if searchStr == "" then
-        gpu.setForeground(config.tabsFgUnsel)
+        gpu.setForeground(config.tabsFgUnsel.value)
         gpu.set(2, 2, "Search...")
     else
-        gpu.setForeground(config.mainFg)
+        gpu.setForeground(config.mainFg.value)
         gpu.set(2, 2, searchStr)
     end
 end
@@ -206,8 +211,8 @@ local mainArea = eventHandler.rect(2, 4, w * 3 / 5, h - 5)
 local mainAreaDirty = true
 function main.drawMainArea()
     if contextMenu or inputForm.created then return end
-    gpu.setBackground(config.mainAreaBg)
-    gpu.setForeground(config.mainFg)
+    gpu.setBackground(config.mainAreaBg.value)
+    gpu.setForeground(config.mainFg.value)
     if mainAreaDirty then gpu.fill(mainArea.left, mainArea.top, mainArea.right - mainArea.left, mainArea.bottom - mainArea.top, " ") end
 
     local curMaintainer = tabs[curMenu].maintainer
@@ -217,12 +222,13 @@ function main.drawMainArea()
         gpu.set(column.x, mainArea.top, column.label)
     end
 
-    local y = levelMaintainer.top + 1
-    local list = levelMaintainer:getVisibleList(searchStr, scroll, mainArea.bottom - mainArea.top - 1)
+    local y = mainArea.top + 1
+    local lasty = y
+    local list = curMaintainer:getVisibleList(searchStr, scroll, mainArea.bottom - mainArea.top - 1)
     for i, line in ipairs(list) do
         if line.type == "group" and (line.elem.dirty or mainAreaDirty) then
             local group = line.elem
-            gpu.setBackground(config.groupBg)
+            gpu.setBackground(config.groupBg.value)
             gpu.fill(2, y + i - 1, mainArea.right - mainArea.left, 1, " ")
             local groupStr = ">  "..group.label
             if group.isOpen then groupStr = "V  "..group.label end
@@ -231,50 +237,69 @@ function main.drawMainArea()
             group.dirty = false
         elseif line.type == "item" and (line.elem.dirty or mainAreaDirty) then
             local item = line.elem
-            gpu.setBackground(config.mainAreaBg)
+            gpu.setBackground(config.mainAreaBg.value)
             gpu.fill(2, y + i - 1, mainArea.right - mainArea.left, 1, " ")
             for _, column in pairs(renderTable) do
-                gpu.set(column.x, y, column.get(item) or "INVALID")
+                gpu.set(column.x, y + i - 1, column.get(item) or "INVALID")
             end
             item.dirty = false
         end
+        lasty = y + i - 1
+    end
+
+    if mainAreaDirty then
+        gpu.setBackground(config.mainAreaBg.value)
+        gpu.setForeground(config.mainFg.value)
+        gpu.fill(mainArea.left, lasty + 1, mainArea.right - mainArea.left, mainArea.bottom - lasty - 1, " ")
     end
 
     mainAreaDirty = false
 end
 
+local sideAreaTick = 0
+local sideAreaDirty = true
 local sideArea = eventHandler.rect(mainArea.right + 1, mainArea.top, w - mainArea.right - 2, mainArea.bottom - mainArea.top)
 function main.drawSideArea()
     if contextMenu or inputForm.created then return end
-    gpu.setBackground(config.mainAreaBg)
-    gpu.setForeground(config.mainFg)
-    gpu.fill(sideArea.left, sideArea.top, sideArea.right - sideArea.left, sideArea.bottom - sideArea.top, " ")
+    sideAreaTick = sideAreaTick + 1
+    if sideAreaTick < 20 then return end
+    sideAreaTick = 0
+    gpu.setBackground(config.mainAreaBg.value)
+    gpu.setForeground(config.mainFg.value)
+    if sideAreaDirty then gpu.fill(sideArea.left, sideArea.top, sideArea.right - sideArea.left, sideArea.bottom - sideArea.top, " ") end
 
+    local curMaintainer = tabs[curMenu].maintainer
     local y = sideArea.top + 1
     gpu.set(sideArea.left, sideArea.top, "Current Jobs:")
-    for _, item in pairs(levelMaintainer.getRawItemList()) do
-        if item.statusVal ~= levelMaintainer.enumStatus.idle then
-            if item.statusVal == levelMaintainer.enumStatus.crafting then gpu.setForeground(config.craftingFg)
-            elseif item.statusVal == levelMaintainer.enumStatus.cancelled then gpu.setForeground(config.cancelledFg) end
+    local items = curMaintainer:getRawItemList()
+    for _, item in pairs(items) do
+        if item.statusVal ~= curMaintainer.enumStatus.idle then
+            if item.statusVal == curMaintainer.enumStatus.crafting then gpu.setForeground(config.craftingFg.value)
+            elseif item.statusVal == curMaintainer.enumStatus.cancelled then gpu.setForeground(config.cancelledFg.value) end
             gpu.set(sideArea.left + 1, y, item.label)
             y = y + 1
         end
     end
 
-    gpu.setForeground(config.mainFg)
+    gpu.setForeground(config.mainFg.value)
     local mem = tostring(require("computer").freeMemory())
     local pow = nil
     if me and isMeOnline() then pow = tostring(math.floor(me.getAvgPowerUsage() / 2)) end
     gpu.set(sideArea.left, sideArea.bottom - 1, "Free RAM: "..mem)
     if pow then gpu.set((sideArea.left + sideArea.right) / 2, sideArea.bottom - 1, "AE2 Power Usage: "..pow.." EU/t") end
+
+    sideAreaDirty = false
 end
 
 local function redraw()
-    gpu.setBackground(config.backBg)
+    gpu.setBackground(config.backBg.value)
     clearScreen()
     main.drawTabs()
     main.drawSearchbar()
+    mainAreaDirty = true
     main.drawMainArea()
+    sideAreaDirty = true
+    main.drawSideArea()
     needRedraw = false
 end
 
@@ -286,7 +311,7 @@ local function onScroll(_, _, dir)
         scroll = scroll + 1
     end
     if scroll < 0 then scroll = 0 end
-    local list = levelMaintainer.getVisibleList(searchStr, 0, math.huge)
+    local list = tabs[curMenu].maintainer:getVisibleList(searchStr, 0, math.huge)
     local maxScroll = #list - (mainArea.bottom - mainArea.top) + 1
     if maxScroll < 0 then maxScroll = 0 end
     if scroll > maxScroll then scroll = maxScroll end
@@ -305,7 +330,7 @@ end
 
 local function getMainElementAt(sely)
     local y = mainArea.top + 1
-    local list = levelMaintainer.getVisibleList(searchStr, scroll, mainArea.bottom - mainArea.top - 1)
+    local list = tabs[curMenu].maintainer:getVisibleList(searchStr, scroll, mainArea.bottom - mainArea.top - 1)
     if not list[sely - y + 1] then return nil end
     return list[sely - y + 1].type, list[sely - y + 1].elem
 end
@@ -314,12 +339,13 @@ local function onContextMenuClick(option)
     if not contextMenu then return end
     local curMaintainer = tabs[curMenu].maintainer
     local function addItem()
-        local callback = curMaintainer.createItemForm(inputForm)
+        local callback = curMaintainer:createItemForm(inputForm)
         if callback then
             inputForm.create(gpu, nil, function(res)
                 callback(res)
                 if res then saveData() end
                 inputForm.clear()
+                needRedraw = true
             end)
         end
     end
@@ -333,12 +359,13 @@ local function onContextMenuClick(option)
                 inputForm.create(gpu, nil, function(res)
                     if res then group.label = res["Group name"] group.dirty = true saveData() end
                     inputForm.clear()
+                    needRedraw = true
                 end)
             end
         elseif option == 2 then -- Delete Group
             local id, group = getMainElementAt(contextMenu.top)
             if id == "group" and group then
-                levelMaintainer.removeGroup(group.label)
+                curMaintainer:removeGroup(group.label)
                 saveData()
             end
         elseif option == 3 then -- Disable Group
@@ -370,20 +397,21 @@ local function onContextMenuClick(option)
                         callback(res)
                         if res then saveData() end
                         inputForm.clear()
+                        needRedraw = true
                     end)
                 end
             end
         elseif option == 2 then -- Delete Item
             local id, item = getMainElementAt(contextMenu.top)
             if id == "item" and item then
-                levelMaintainer.removeItem(item.label)
+                curMaintainer:removeItem(item.label)
                 saveData()
             end
         elseif option == 3 then -- Disable/Enable Item
             local id, item = getMainElementAt(contextMenu.top)
             if id == "item" and item then
                 item.disable = not item.disable
-                if not item.disable then item.statusVal = levelMaintainer.enumStatus.idle end
+                if not item.disable then item.statusVal = curMaintainer.enumStatus.idle end
                 saveData()
             end
         end
@@ -400,8 +428,8 @@ local function createContextMenu(x, y, id, options)
     for _, str in ipairs(options) do
         if #str > width then width = #str end
     end
-    gpu.setBackground(config.contextMenuBg)
-    gpu.setForeground(config.mainFg)
+    gpu.setBackground(config.contextMenuBg.value)
+    gpu.setForeground(config.mainFg.value)
     gpu.fill(x, y, width, height, " ")
     for i, str in ipairs(options) do
         gpu.set(x, y + i - 1, str)
@@ -427,7 +455,7 @@ local function onMainAreaClick(_, mx, my, bt, _)
     end
 
     local y = mainArea.top + 1
-    local line = levelMaintainer.getVisibleList(searchStr, scroll, mainArea.bottom - mainArea.top - 1)[my - y + 1]
+    local line = tabs[curMenu].maintainer:getVisibleList(searchStr, scroll, mainArea.bottom - mainArea.top - 1)[my - y + 1]
     if line then
         if line.type == "group" then
             local group = line.elem

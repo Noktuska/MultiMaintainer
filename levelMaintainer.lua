@@ -31,7 +31,7 @@ function levelMaintainer:craftItemIfNeeded(curItem, amount, me)
     if curItem.damage then filter.damage = curItem.damage end
     curItem.pattern = curItem.pattern or self:findPattern(me, filter)
     if not curItem.pattern then
-        curItem.statusVal = levelMaintainer.enumStatus.cancelled
+        curItem.statusVal = self.enumStatus.cancelled
         return true
     end
 
@@ -42,13 +42,14 @@ function levelMaintainer:craftItemIfNeeded(curItem, amount, me)
     curItem.timeoutTick = 0
 
     curItem.stocked = amount
+    curItem.dirty = true
 
     if curItem.status and curItem.status.isDone() then
-        curItem.statusVal = levelMaintainer.enumStatus.idle
+        curItem.statusVal = self.enumStatus.idle
         curItem.status = nil
     end
 
-    if not curItem.status and amount < curItem.toStock and (not levelMaintainer.checkCpus or not levelMaintainer.isItemAlreadyCrafting(me, curItem.label)) then
+    if not curItem.status and amount < curItem.toStock and (not self.checkCpus or not self:isItemAlreadyCrafting(me, curItem.label)) then
         local status = curItem.pattern.request(curItem.batch)
         -- Things that can happen that should be looked out for:
         -- 1) Pattern has been removed/changed. isDone() returns false, string;   isCanceled() returns true, string
@@ -58,17 +59,17 @@ function levelMaintainer:craftItemIfNeeded(curItem, amount, me)
         -- The string being "request failed (missing resources?)"
         local _, err = status.isCanceled()
         if err then
-            curItem.statusVal = levelMaintainer.enumStatus.cancelled
+            curItem.statusVal = self.enumStatus.cancelled
             -- Recheck pattern for case 1)
-            curItem.pattern = levelMaintainer.findPattern(me, filter)
+            curItem.pattern = self:findPattern(me, filter)
         else
-            curItem.statusVal = levelMaintainer.enumStatus.crafting
+            curItem.statusVal = self.enumStatus.crafting
             curItem.status = status
         end
     elseif curItem.status and curItem.status.isCanceled() then
-        curItem.statusVal = levelMaintainer.enumStatus.cancelled
+        curItem.statusVal = self.enumStatus.cancelled
         curItem.status = nil
-    else curItem.statusVal = levelMaintainer.enumStatus.idle end
+    else curItem.statusVal = self.enumStatus.idle end
 
     return true
 end
@@ -77,10 +78,15 @@ function levelMaintainer:legacyTick(me)
     local items = self:getRawItemList()
     if #items == 0 then return false end
     if not self.curItemTick then self.curItemTick = 0 end
-    if items[self.curItemTick] then items[self.curItemTick].active = false end
+    if items[self.curItemTick] then
+        items[self.curItemTick].active = false
+        items[self.curItemTick].dirty = true
+    end
     self.curItemTick = self.curItemTick + 1
+    if self.curItemTick > #items then self.curItemTick = 1 end
     local curItem = items[self.curItemTick]
     curItem.active = true
+    curItem.dirty = true
     local filter = { label = curItem.label }
     if curItem.id then filter.name = curItem.id end
     if curItem.damage then filter.damage = curItem.damage end
@@ -90,7 +96,7 @@ function levelMaintainer:legacyTick(me)
 end
 
 function levelMaintainer:tick(me)
-    if self.config.meAddress.value then me = require("component").proxy(self.config.meAddress.value) or me end
+    if self.config.meAddress.value and self.config.meAddress.value ~= "" then me = require("component").proxy(self.config.meAddress.value) or me end
 
     if self.config.legacyTick.value ~= 0 then
         iterator = nil
@@ -116,7 +122,7 @@ end
 
 function levelMaintainer:getRenderTable(width)
     return {
-        { x = 3, label = "Item", get = function(item)
+        { x = 6, label = "Item", get = function(item)
             local res = item.label
             if item.id then
                 res = res .. " [" .. item.id
@@ -124,6 +130,10 @@ function levelMaintainer:getRenderTable(width)
                 res = res .. "]"
             end
             if item.disabled then res = res .. " (D)" end
+            if self.config.legacyTick.value ~= 0 then
+                if item.active then res = "--> "..res
+                else res = "    "..res end
+            end
             return res
         end },
         { x = width - 9, label = "Batch", get = function(item) return utils.shortNumString(item.batch) end }, -- width - shortNumStringLen - padding
@@ -141,18 +151,15 @@ function levelMaintainer:createItemForm(inputForm, item)
     inputForm.addField("group", "Group", item and item.groupLabel)
     return function(res)
         if res then
-            if res["stock"] < 0 or res["batch"] < 1 then return end
-            item = item or self:addItem(res["label"], tonumber(res["stock"]), tonumber(res["batch"]), res["group"])
-            item.label = res["label"]
-            item.toStock = tonumber(res["stock"])
-            item.batch = tonumber(res["batch"])
+            local stock = tonumber(res["stock"]) or -1
+            local batch = tonumber(res["batch"]) or -1
+            if stock < 0 or batch < 1 then return end
+            if item then self:removeItem(item.label, item.groupLabel) end
+            item = self:addItem(res["label"], stock, batch, res["group"])
             item.id = res["id"]
             item.damage = res["damage"]
             if item.id == "" then item.id = nil end
             if item.damage == "" then item.damage = nil end
-            if item.groupLabel ~= res["group"] then
-                self:moveGroup(item.label, item.groupLabel, res["group"])
-            end
             item.dirty = true
         end
     end
@@ -160,8 +167,9 @@ end
 
 function levelMaintainer:serialize()
     local res = {}
-    for _, elem in pairs(self:getRawItemList()) do
-        local t = { label = elem.label, toStock = elem.toStock, batch = elem.batch, group = elem.group, disabled = elem.disabled }
+    local items = self:getRawItemList()
+    for _, elem in pairs(items) do
+        local t = { label = elem.label, toStock = elem.toStock, batch = elem.batch, group = elem.groupLabel, disabled = elem.disabled }
         if elem.id then t.id = elem.id end
         if elem.damage then t.damage = elem.damage end
         table.insert(res, t)

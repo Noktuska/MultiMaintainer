@@ -38,7 +38,8 @@ end
 
 function maintainer.new(o)
     o = o or {}
-    setmetatable(o, maintainer)
+    setmetatable(o, { __index = maintainer })
+    o.items = {}
     o.groups = {}
     o.sortedGroupIndices = {}
     return o
@@ -54,6 +55,7 @@ function maintainer:addItem(label, toStock, batch, groupLabel, _item)
     end
     if group.items[label] then return nil end
     local item = _item or newItem{ label = label, toStock = toStock, batch = batch, groupLabel = groupLabel }
+    self.items[label] = item
     group.items[label] = item
     table.insert(group.sortedItemIndices, label)
     table.sort(group.sortedItemIndices)
@@ -73,6 +75,7 @@ function maintainer:removeItem(label, groupLabel)
     if not group or not group.items[label] then return nil end
     utils.removeByValue(group.sortedItemIndices, label)
     local oldItem = group.items[label]
+    self.items[label] = nil
     group.items[label] = nil
     if #group.sortedItemIndices == 0 then -- If no items are left remove the group altogether
         utils.removeByValue(self.sortedGroupIndices, groupLabel)
@@ -93,7 +96,7 @@ function maintainer:getRawItemList()
     for _, groupLabel in pairs(self.sortedGroupIndices) do
         local group = self.groups[groupLabel]
         for _, label in pairs(group.sortedItemIndices) do
-            table.insert(group[label])
+            table.insert(res, group.items[label])
         end
     end
     return res
