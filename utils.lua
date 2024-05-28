@@ -23,4 +23,29 @@ function utils.removeByValue(t, value)
     return false
 end
 
+function utils.sendMessage(modem, addr, port, ...)
+    if not modem.isOpen(port) then modem.open(port) end
+
+    local result = nil
+    local ev = require("event").listen("modem_message", function(_, _, sender, _, _, ...)
+        if sender == addr then result = {...} end
+    end)
+
+    modem.send(addr, port, ...)
+
+    local timeout = 3
+    while not result do
+        os.sleep(1)
+        timeout = timeout - 1
+    end
+
+    if not result then return false, "Ping failed" end
+
+    while result[1] == "pong" do
+        os.sleep(1) -- TODO: Coroutine this to not wait
+    end
+
+    return result
+end
+
 return utils

@@ -79,8 +79,10 @@ function aspectMaintainer:craftAspectIfNeeded(aspect, amount, me)
     return true
 end
 
-function aspectMaintainer:tick(me)
-    if self.config.meAddress.value then me = require("component").proxy(self.config.meAddress.value) or me end
+function aspectMaintainer:tick()
+    local me = nil
+    if self.config.meAddress.value then me = require("component").proxy(self.config.meAddress.value) end
+    if not me then return false end
     local stockedEssentia = me.getEssentiaInNetwork()
     local stockedEssentiaMap = {}
     for _, ess in pairs(stockedEssentia) do

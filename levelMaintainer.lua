@@ -95,8 +95,10 @@ function levelMaintainer:legacyTick(me)
     return self:craftItemIfNeeded(curItem, stocked.size, me)
 end
 
-function levelMaintainer:tick(me)
-    if self.config.meAddress.value and self.config.meAddress.value ~= "" then me = require("component").proxy(self.config.meAddress.value) or me end
+function levelMaintainer:tick()
+    local me = nil
+    if self.config.meAddress.value then me = require("component").proxy(self.config.meAddress.value) end
+    if not me then return false end
 
     if self.config.legacyTick.value ~= 0 then
         iterator = nil

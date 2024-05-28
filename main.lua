@@ -9,8 +9,8 @@ local inputForm = require("inputForm")
 local gpu = component.gpu
 if not gpu then return error("Program needs GPU to run") end
 
-local me = component.me_interface
-if not me then return error("Not connected to ME network") end
+--local me = component.me_interface
+--if not me then return error("Not connected to ME network") end
 
 local redstone = component.redstone
 if not redstone then return error("Need redstone component") end
@@ -26,7 +26,7 @@ local needRedraw = true
 
 local levelMaintainer = require("levelMaintainer")
 local aspectMaintainer = require("aspectMaintainer")
-local beeMaintainer = nil
+local beeMaintainer = require("beeMaintainer")
 
 local config = {
     backBg = { type = "hex", value = 0x252526, desc = "Background (color)" },
@@ -116,49 +116,72 @@ local scroll = 0
 
 local running = true
 
-local saveDataLocation = "multi_maintainer.data"
+local saveDataLocation = "multi_maintainer"
 local function saveData()
-    local f = io.open(saveDataLocation, "w")
-    if not f then return false end
+    local f = io.open(saveDataLocation .. ".data", "w")
+    
+    if f then
+        local data = {}
+        data.config = config
 
-    local data = {}
-    data.config = config
+        f:write(serialization.serialize(data))
+        f:close()
+    end
+
     for i = 1, tabs.size do
         local maintainer = tabs[i].maintainer
         if maintainer then
-            data[tabs[i].label] = {}
-            data[tabs[i].label].data = maintainer:serialize()
-            data[tabs[i].label].config = maintainer.config
-        end
-    end
+            f = io.open(saveDataLocation .. "_" .. tabs[i].label .. ".data")
 
-    f:write(serialization.serialize(data))
-    f:close()
-    return true
-end
+            if f then
+                local maintainerData = {}
+                maintainerData.data = maintainer:serialize()
+                maintainerData.config = maintainer.config or {}
 
-local function loadData()
-    local f = io.open(saveDataLocation, "r")
-    if not f then return false end
-
-    local str = f:read(math.huge)
-    if not str then f:close() return false end
-    local data = serialization.unserialize(str)
-    
-    if data.config then
-        for k, v in pairs(data.config) do config[k] = v end
-    end
-    for i = 1, tabs.size do
-        local maintainer = tabs[i].maintainer
-        if maintainer and data[tabs[i].label] then
-            maintainer:unserialize(data[tabs[i].label].data)
-            for k, v in pairs(data[tabs[i].label].config) do
-                maintainer.config[k] = v
+                f:write(serialization.serialize(maintainerData))
+                f:close()
             end
         end
     end
 
-    f:close()
+    return true
+end
+
+local function loadData()
+    local f = io.open(saveDataLocation .. ".data", "r")
+
+    if f then
+        local str = f:read(math.huge)
+        if str then
+            local data = serialization.unserialize(str)
+            
+            if data.config then
+                for k, v in pairs(data.config) do config[k] = v end
+            end
+        end
+
+        f:close()
+    end
+
+    for i = 1, tabs.size do
+        local maintainer = tabs[i].maintainer
+        if maintainer then
+            f = io.open(saveDataLocation .. "_" .. tabs[i].label .. ".data")
+            if f then
+                local str = f:read(math.huge)
+                if str then
+                    local data = serialization.unserialize(str)
+                    maintainer:unserialize(data.data)
+                    for k, v in pairs(data.config) do
+                        maintainer.config[k] = v
+                    end
+                end
+
+                f:close()
+            end
+        end
+    end
+
     return true
 end
 
@@ -266,7 +289,8 @@ function main.drawSideArea()
     sideAreaTick = 0
     gpu.setBackground(config.mainAreaBg.value)
     gpu.setForeground(config.mainFg.value)
-    if sideAreaDirty then gpu.fill(sideArea.left, sideArea.top, sideArea.right - sideArea.left, sideArea.bottom - sideArea.top, " ") end
+    if sideAreaDirty then gpu.fill(sideArea.left, sideArea.top, sideArea.right - sideArea.left, sideArea.bottom - sideArea.top, " ")
+    else gpu.fill(sideArea.left, sideArea.bottom - 1, sideArea.right - sideArea.left, 1, " ") end
 
     local curMaintainer = tabs[curMenu].maintainer
     local y = sideArea.top + 1
@@ -284,7 +308,7 @@ function main.drawSideArea()
     gpu.setForeground(config.mainFg.value)
     local mem = tostring(require("computer").freeMemory())
     local pow = nil
-    if me and isMeOnline() then pow = tostring(math.floor(me.getAvgPowerUsage() / 2)) end
+    --if me and isMeOnline() then pow = tostring(math.floor(me.getAvgPowerUsage() / 2)) end
     gpu.set(sideArea.left, sideArea.bottom - 1, "Free RAM: "..mem)
     if pow then gpu.set((sideArea.left + sideArea.right) / 2, sideArea.bottom - 1, "AE2 Power Usage: "..pow.." EU/t") end
 
@@ -507,7 +531,7 @@ while running do
         for i = 1, tabs.size do
             local maintainer = tabs[i].maintainer
             if maintainer then
-                maintainer:tick(me)
+                maintainer:tick()
             end
         end
         --levelMaintainer.tick(me)
