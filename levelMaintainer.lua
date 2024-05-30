@@ -69,7 +69,7 @@ function levelMaintainer:craftItemIfNeeded(curItem, amount, me)
     elseif curItem.status and curItem.status.isCanceled() then
         curItem.statusVal = self.enumStatus.cancelled
         curItem.status = nil
-    else curItem.statusVal = self.enumStatus.idle end
+    elseif not curItem.status then curItem.statusVal = self.enumStatus.idle end
 
     return true
 end
@@ -98,14 +98,20 @@ end
 function levelMaintainer:tick()
     local me = nil
     if self.config.meAddress.value then me = require("component").proxy(self.config.meAddress.value) end
-    if not me then return false end
+    if not me then
+        self:log("Invalid ME Address")
+        return false
+    end
 
     if self.config.legacyTick.value ~= 0 then
         iterator = nil
         return self:legacyTick(me)
     end
 
-    if not iterator then iterator = me.allItems() end
+    if not iterator then
+        self:log("Create new iterator")
+        iterator = me.allItems()
+    end
 
     local i = 0
     local dirty = false
@@ -115,7 +121,10 @@ function levelMaintainer:tick()
             dirty = self:craftItemIfNeeded(item, stack.size, me) or dirty
         end
         i = i + 1
-        if i >= self.config.craftsPerTick.value then return dirty end
+        if i >= self.config.craftsPerTick.value then
+            self:log("Last item: " .. stack.label)
+            return dirty
+        end
     end
 
     iterator = nil

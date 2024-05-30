@@ -39,6 +39,7 @@ end
 function maintainer.new(o)
     o = o or {}
     setmetatable(o, { __index = maintainer })
+    o.logs = {}
     o.items = {}
     o.groups = {}
     o.sortedGroupIndices = {}
@@ -143,6 +144,17 @@ function maintainer:getVisibleList(filter, offset, height)
         end
     end
     return res
+end
+
+function maintainer:log(...)
+    local msg = {...}
+    for _, elem in pairs(msg) do
+        table.insert(self.logs, elem)
+    end
+    while #self.logs > 20 do
+        table.remove(self.logs, 1)
+    end
+    self.logsDirty = true
 end
 
 function maintainer:tick(me) end

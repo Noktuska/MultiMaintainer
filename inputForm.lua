@@ -112,6 +112,7 @@ function inputForm.create(gpu, config, callback)
         for i, field in ipairs(fields) do
             if field.rect and x >= field.rect.left and x < field.rect.right and y >= field.rect.top and y < field.rect.bottom then
                 focusIndex = i
+                render(gpu, cfg)
                 return
             end
         end
@@ -142,6 +143,7 @@ function inputForm.create(gpu, config, callback)
         local focus = fields[focusIndex]
         if not focus then return end
         focus.str = focus.str .. str
+        render(gpu, cfg)
     end)
 end
 

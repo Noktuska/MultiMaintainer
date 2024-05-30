@@ -131,7 +131,7 @@ local function saveData()
     for i = 1, tabs.size do
         local maintainer = tabs[i].maintainer
         if maintainer then
-            f = io.open(saveDataLocation .. "_" .. tabs[i].label .. ".data")
+            f = io.open(saveDataLocation .. "_" .. tabs[i].label .. ".data", "w")
 
             if f then
                 local maintainerData = {}
@@ -294,15 +294,30 @@ function main.drawSideArea()
 
     local curMaintainer = tabs[curMenu].maintainer
     local y = sideArea.top + 1
+    -- CURRENT CRAFTING JOBS
     gpu.set(sideArea.left, sideArea.top, "Current Jobs:")
     local items = curMaintainer:getRawItemList()
     for _, item in pairs(items) do
+        if y >= (sideArea.bottom - sideArea.top) // 2 + sideArea.top then break end
         if item.statusVal ~= curMaintainer.enumStatus.idle then
             if item.statusVal == curMaintainer.enumStatus.crafting then gpu.setForeground(config.craftingFg.value)
             elseif item.statusVal == curMaintainer.enumStatus.cancelled then gpu.setForeground(config.cancelledFg.value) end
+            gpu.fill(sideArea.left, y, sideArea.right - sideArea.left, 1, " ")
             gpu.set(sideArea.left + 1, y, item.label)
             y = y + 1
         end
+    end
+
+    -- MAINTAINER LOGS
+    if curMaintainer.logsDirty then
+        gpu.setForeground(config.mainFg.value)
+        y = sideArea.top + (sideArea.bottom - sideArea.top) // 2
+        gpu.set(sideArea.left, y, "Logs:")
+        for i, msg in ipairs(curMaintainer.logs) do
+            gpu.fill(sideArea.left, y + i, sideArea.right - sideArea.left, 1, " ")
+            gpu.set(sideArea.left + 1, y + i, msg)
+        end
+        curMaintainer.logsDirty = false
     end
 
     gpu.setForeground(config.mainFg.value)
@@ -395,16 +410,16 @@ local function onContextMenuClick(option)
         elseif option == 3 then -- Disable Group
             local id, group = getMainElementAt(contextMenu.top)
             if id == "group" and group then
-                for _, item in group.items do
-                    item.disable = true
+                for _, item in pairs(group.items) do
+                    item.disabled = true
                 end
                 saveData()
             end
         elseif option == 4 then -- Enable group
             local id, group = getMainElementAt(contextMenu.top)
             if id == "group" and group then
-                for _, item in group.items do
-                    item.disable = false
+                for _, item in pairs(group.items) do
+                    item.disabled = false
                 end
                 saveData()
             end
@@ -428,14 +443,14 @@ local function onContextMenuClick(option)
         elseif option == 2 then -- Delete Item
             local id, item = getMainElementAt(contextMenu.top)
             if id == "item" and item then
-                curMaintainer:removeItem(item.label)
+                curMaintainer:removeItem(item.label, item.groupLabel)
                 saveData()
             end
         elseif option == 3 then -- Disable/Enable Item
             local id, item = getMainElementAt(contextMenu.top)
             if id == "item" and item then
-                item.disable = not item.disable
-                if not item.disable then item.statusVal = curMaintainer.enumStatus.idle end
+                item.disabled = not item.disabled
+                if not item.disabled then item.statusVal = curMaintainer.enumStatus.idle end
                 saveData()
             end
         end
@@ -523,6 +538,7 @@ local ev2 = event.listen("scroll", function(_, _, x, y, dir, _) onScroll(x, y, d
 eventHandler.registerButton("btMainArea", mainArea, onMainAreaClick)
 
 local tickCounter = 0
+local renderCounter = 0
 while running do
     if needRedraw and not inputForm.created then redraw() end
 
@@ -534,16 +550,15 @@ while running do
                 maintainer:tick()
             end
         end
-        --levelMaintainer.tick(me)
-        --local redstone = component.redstone
-        ----local essAlert = 15
-        --if levelMaintainer.essentiaAlert then essAlert = 0 end
-        --if redstone then redstone.setOutput(require("sides").east, essAlert) end
         tickCounter = 0
     end
-    --if dirty then main.drawMainArea() end
-    main.drawMainArea()
-    main.drawSideArea()
+
+    renderCounter = renderCounter + 1
+    if renderCounter > config.refreshRate.value then
+        main.drawMainArea()
+        main.drawSideArea()
+        renderCounter = 0
+    end
 
     os.sleep()
 end
