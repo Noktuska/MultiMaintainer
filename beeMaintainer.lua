@@ -329,7 +329,7 @@ function beeMaintainer:tick()
         self.queensToRemove = {}
         for _, elem in pairs(self.apiaryList) do
             local item = self.items[elem.itemLabel]
-            if item.stocked >= item.batch then
+            if item.stocked >= item.batch or item.disabled then
                 table.insert(self.queensToRemove, item.species)
                 slots = slots + 1
             end
