@@ -547,7 +547,9 @@ while running do
         for i = 1, tabs.size do
             local maintainer = tabs[i].maintainer
             if maintainer then
+                local startTime = os.time()
                 maintainer:tick()
+                maintainer:log("Last tick: " .. tostring((os.time() - startTime) * 1000 / 6 / 6 / 2) .. "ms")
             end
         end
         tickCounter = 0
