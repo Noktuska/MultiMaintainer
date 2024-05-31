@@ -47,7 +47,7 @@ end
 function beeMaintainer:asyncDoWork()
     if not self.asyncState then self.asyncState = 0 end
 
-    local chk, err = self:setApiaryState(enumState.off, enumState.output, enumState.pulse, enumState.input, enumState.on)
+    local chk, err = self:setApiaryState(enumState.off, enumState.output, enumState.pulse)
     if not chk then return false, err end
 
     self:log("Apiary configured, moving old queens")
@@ -212,6 +212,8 @@ function beeMaintainer:asyncDoWork()
         end
     end
 
+    self:setApiaryState(enumState.input, enumState.on)
+
     self:log("Removing old queens from apiary")
     local curSlot = 1
     local it = t.getAllStacks(sideChest)
@@ -309,8 +311,6 @@ function beeMaintainer:tick()
     local me = nil
     if self.config.meAddress.value then me = component.proxy(self.config.meAddress.value) end
     if not me then return false end
-
-    self:log("Start tick")
 
     local itemList = self:getRawItemList()
     if #itemList == 0 then return false end
@@ -419,14 +419,12 @@ function beeMaintainer:createItemForm(inputForm, item)
     inputForm.addField("stock", "Minimum Stock", item and tostring(item.toStock) or "0", inputForm.anyNumber)
     inputForm.addField("batch", "Maximum Stock", item and tostring(item.batch) or "0", inputForm.anyNumber)
     inputForm.addField("species", "Bee Species", item and item.species)
-    --inputForm.addField("priority", "Priority", item and tostring(item.priority) or "0", inputForm.anyNumber)
     inputForm.addField("parallels", "Parallels", item and tostring(item.parallels) or "1", inputForm.anyNumber)
     inputForm.addField("group", "Group", item and item.groupLabel)
     return function(res)
         if res then
             local stock = tonumber(res["stock"]) or -1
             local batch = tonumber(res["batch"]) or -1
-            --local priority = tonumber(res["priority"]) or 0
             local parallels = tonumber(res["parallels"]) or 0
             if stock < 0 or batch < 1 or parallels < 1 then return end
             local status = self.enumStatus.idle
@@ -434,7 +432,6 @@ function beeMaintainer:createItemForm(inputForm, item)
             if item then self:removeItem(item.label, item.groupLabel) end
             item = self:addItem(res["label"], stock, batch, res["group"])
             item.species = res["species"] or "INVALID"
-            --item.priority = priority
             item.parallels = parallels
             item.dirty = true
             item.statusVal = status
