@@ -18,6 +18,15 @@ function aspectMaintainer:setEssentiaWarning(isLow)
     end
 end
 
+function aspectMaintainer:initAllAspects(me, toStock, batch, alert, group)
+    local patterns = me.getCraftables{ name = "thaumicenergistics:crafting.aspect" }
+    for _, pattern in pairs(patterns) do
+        local item = self:addItem(pattern.getItemStack().label, toStock, batch, group)
+        item.alert = alert
+        item.dirty = true
+    end
+end
+
 function aspectMaintainer:findPattern(me, label)
     local data = me.getCraftables({ aspect = string.lower(label) })[1]
     if not data then return nil, "No pattern ["..label.."] found" end
@@ -91,12 +100,10 @@ function aspectMaintainer:tick()
     end
     local alert = false
     local aspectList = self:getRawItemList()
-    for label, aspect in pairs(aspectList) do
+    for _, aspect in pairs(aspectList) do
+        local label = aspect.label
         local amount = stockedEssentiaMap[label] or 0
         self:craftAspectIfNeeded(aspect, amount, me)
-        if amount < aspect.toStock then
-            self:craftAspectIfNeeded(aspect, amount, me)
-        end
         if not aspect.alert then aspect.alert = 512 end
         if amount < aspect.alert then alert = true end
     end
@@ -128,6 +135,14 @@ function aspectMaintainer:createItemForm(inputForm, item)
             local stock = tonumber(res["stock"]) or -1
             local batch = tonumber(res["batch"]) or -1
             if stock < 0 or batch < 1 then return end
+            if res["label"] == "__init__" then
+                local me = nil
+                if self.config.meAddress.value then me = require("component").proxy(self.config.meAddress.value) end
+                if me then
+                    self:initAllAspects(me, stock, batch, tonumber(res["alert"]), res["group"])
+                    return
+                end
+            end
             if item then self:removeItem(item.label, item.groupLabel) end
             item = self:addItem(res["label"], stock, batch, res["group"])
             item.alert = tonumber(res["alert"])
@@ -139,7 +154,7 @@ end
 function aspectMaintainer:serialize()
     local res = {}
     for _, elem in pairs(self:getRawItemList()) do
-        local t = { label = elem.label, toStock = elem.toStock, batch = elem.batch, group = elem.group, disabled = elem.disabled }
+        local t = { label = elem.label, toStock = elem.toStock, batch = elem.batch, group = elem.groupLabel, disabled = elem.disabled }
         if elem.alert then t.alert = elem.alert end
         table.insert(res, t)
     end
