@@ -21,7 +21,8 @@ end
 function aspectMaintainer:initAllAspects(me, toStock, batch, alert, group)
     local patterns = me.getCraftables{ name = "thaumicenergistics:crafting.aspect" }
     for _, pattern in pairs(patterns) do
-        local item = self:addItem(pattern.getItemStack().label, toStock, batch, group)
+        local label = string.gsub(pattern.getItemStack().aspect, "^%l", string.upper)
+        local item = self:addItem(label, toStock, batch, group)
         item.alert = alert
         item.dirty = true
     end
@@ -55,8 +56,8 @@ function aspectMaintainer:craftAspectIfNeeded(aspect, amount, me)
     end
     aspect.timeoutTick = 0
 
+    if aspect.stocked ~= amount then aspect.dirty = true end
     aspect.stocked = amount
-    aspect.dirty = true
 
     if aspect.status and aspect.status.isDone() then
         aspect.statusVal = self.enumStatus.idle
@@ -83,7 +84,7 @@ function aspectMaintainer:craftAspectIfNeeded(aspect, amount, me)
     elseif aspect.status and aspect.status.isCanceled() then
         aspect.statusVal = self.enumStatus.cancelled
         aspect.status = nil
-    else aspect.statusVal = self.enumStatus.idle end
+    elseif not aspect.status then aspect.statusVal = self.enumStatus.idle end
 
     return true
 end
@@ -96,7 +97,7 @@ function aspectMaintainer:tick()
     local stockedEssentiaMap = {}
     for _, ess in pairs(stockedEssentia) do
         local label = string.match(ess.label, "%w+")
-        stockedEssentiaMap[label] = stockedEssentia.amount
+        stockedEssentiaMap[label] = ess.amount
     end
     local alert = false
     local aspectList = self:getRawItemList()

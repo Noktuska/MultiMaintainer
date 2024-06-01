@@ -41,8 +41,8 @@ function levelMaintainer:craftItemIfNeeded(curItem, amount, me)
     end
     curItem.timeoutTick = 0
 
+    if curItem.stocked ~= amount then curItem.dirty = true end
     curItem.stocked = amount
-    curItem.dirty = true
 
     if curItem.status and curItem.status.isDone() then
         curItem.statusVal = self.enumStatus.idle

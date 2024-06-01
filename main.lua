@@ -39,8 +39,9 @@ local config = {
     contextMenuBg = { type = "hex", value = 0x252526, desc = "Context Menu BG (color)" },
     craftingFg = { type = "hex", value = 0xDCDC8B, desc = "In Progress (color)" },
     cancelledFg = { type = "hex", value = 0xEA8070, desc = "Cancel (color)" },
-    tickMaxCount = { type = "int", value = 4, desc = "Tick delay" },
-    refreshRate = { type = "int", value = 1, desc = "Redraw delay" }
+    tickMaxCount = { type = "int", value = 40, desc = "Tick delay" },
+    refreshRate = { type = "int", value = 1, desc = "Redraw delay" },
+    redstoneAddr = { type = "string", value = nil, desc = "Redstone I/O (ME Online)" }
 }
 
 local function createConfigMenu(cfg)
@@ -186,8 +187,9 @@ local function loadData()
 end
 
 local function isMeOnline()
-    local redstone = component.redstone
-    if not redstone then return false end
+    local redstone = nil
+    if config.redstoneAddr.value then redstone = component.proxy(config.redstoneAddr.value) end
+    if not redstone then return true end
     for i = 0, 5 do
         if redstone.getInput(i) > 0 then return true end
     end

@@ -13,8 +13,11 @@ beeMaintainer.config = {
     meAddress = { label = "Main ME Address", type = "string", value = nil },
     beeMeAddress = { label = "Apiary ME Address", type = "string", value = nil },
     robotAddr = { label = "Robot Address", type = "string", value = nil },
+    transposerAddr = { label = "Transposer Address", type = "string", value = nil },
+    redstoneAddr = { label = "Redstone I/O Address (Royal Jelly)", type = "string", value = nil },
+    useRoyalJelly = { label = "Use Royal Jelly", type = "int", value = 0 },
     slots = { label = "Apiary Slots", type = "int", value = 0 },
-    timeout = { label = "Apiary timeout", type = "int", value = 40 }
+    timeout = { label = "Apiary timeout", type = "int", value = 10 }
 }
 
 local enumState = {
@@ -52,8 +55,12 @@ function beeMaintainer:asyncDoWork()
 
     self:log("Apiary configured, moving old queens")
 
-    local t = component.transposer
-    if not t then return false, "No transposer fulfills the requirements to edit the Mega Apiary" end
+    local t = nil
+    if self.config.transposerAddr.value then t = component.proxy(self.config.transposerAddr.value) end
+    if not t then return false, "No Transposer address given" end
+
+    local r = nil
+    if self.config.redstoneAddr.value then r = component.proxy(self.config.redstoneAddr.value) end
 
     local sideInterface = nil
     local sideChest = nil
@@ -100,6 +107,8 @@ function beeMaintainer:asyncDoWork()
             coroutine.yield(true, false)
         until slot
     end
+
+    if r then for i = 0, 5 do r.setOutput(i, 15) end end
 
     -- BREED NEW QUEENS
     self:log("Checking queen parallels...")
@@ -212,6 +221,8 @@ function beeMaintainer:asyncDoWork()
         end
     end
 
+    if r and self.config.useRoyalJelly.value == 0 then for i = 0, 5 do r.setOutput(i, 0) end end
+
     self:setApiaryState(enumState.input, enumState.on)
 
     self:log("Removing old queens from apiary")
@@ -297,11 +308,6 @@ function beeMaintainer:tick()
         end
         return false
     end
-
-    if self.timeout > 0 then
-        self.timeout = self.timeout - 1
-        return false
-    end
     
     if self.config.slots.value < 1 or
         not self.config.robotAddr.value or
@@ -322,6 +328,13 @@ function beeMaintainer:tick()
     self.tickIndex = self.tickIndex + 1
 
     if self.tickIndex > #itemList then
+        self.tickIndex = 0
+        if self.timeout > 0 then
+            self:log("Apiary Logic timeout: " .. tostring(self.timeout))
+            self.timeout = self.timeout - 1
+            return false
+        end
+
         self:log("Apiary logic...")
         -- APIARY LOGIC
         local slots = self.config.slots.value - #self.apiaryList
@@ -337,7 +350,7 @@ function beeMaintainer:tick()
         self:log("Removing " .. #self.queensToRemove .. " Queen(s)")
 
         -- GET QUEENS TO ADD TO APIARY
-        table.sort(self.diffList, function(l, r) return l.diff <= r.diff end) -- Sort items by how low they got on stock in compared to toStock
+        table.sort(self.diffList, function(l, r) if l.diff == r.diff then return l.item.label < r.item.label else return l.diff < r.diff end end) -- Sort items by how low they got on stock in compared to toStock
         self.queensToAdd = {}
         local i = 1
         while slots > 0 do  -- Try to fill the apiary
@@ -346,7 +359,7 @@ function beeMaintainer:tick()
 
             if item.batch ~= 0 and (item.stocked - item.toStock) / item.batch >= 0.5 then break end -- Still have over 50% between min and max stock
 
-            if item.statusVal == self.enumStatus.idle then
+            if item.statusVal == self.enumStatus.idle and not item.disabled then
                 for _ = 1, item.parallels do
                     table.insert(self.queensToAdd, { itemLabel = item.label, species = item.species })
                     slots = slots - 1
@@ -357,7 +370,7 @@ function beeMaintainer:tick()
         end
 
         -- Do apiary logic if 1) we need to add/swap any queens or 2) All Queens are done producing
-        if #self.queensToAdd > 0 or (#self.queensToRemove > 0 and #self.queensToRemove == #self.apiaryList) then
+        if #self.queensToAdd > 0 or #self.queensToRemove > 0 then
             self:log("Adding " .. #self.queensToAdd .. " Queens to apiary")
 
             -- Modifying the apiary as well as breeding new Queens takes time so we do it "async" with a coroutine
@@ -366,7 +379,8 @@ function beeMaintainer:tick()
         end
 
         self.diffList = {}
-        self.tickIndex = 0
+        self.timeout = self.config.timeout.value
+        
         return true
     end
 
