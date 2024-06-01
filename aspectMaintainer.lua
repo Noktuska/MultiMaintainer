@@ -8,9 +8,20 @@ aspectMaintainer.config = {
     outputWhenLow = { label = "Redstone on low essentia", type = "int", value = 0 }
 }
 
+function aspectMaintainer:shouldTick()
+    if not self.config.redstone.value then return true end
+    local redstone = require("component").proxy(self.config.redstone.value)
+    if not redstone then return true end
+    for i = 0, 5 do
+        if redstone.getInput(i) > 0 then return true end
+    end
+    return false
+end
+
 function aspectMaintainer:setEssentiaWarning(isLow)
     if not self.config.redstone.value then return end
     local redstone = require("component").proxy(self.config.redstone.value)
+    if not redstone then return end
     local value = 0
     if isLow == (self.config.outputWhenLow.value ~= 0) then value = 15 end
     for side = 0, 5 do
