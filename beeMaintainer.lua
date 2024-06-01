@@ -277,7 +277,7 @@ function beeMaintainer:asyncDoWork()
             -- Mark item as crafting and update apiaryList
             item.statusVal = self.enumStatus.crafting
             table.insert(self.apiaryList, elem)
-        end
+        else item.statusVal = self.enumStats.cancelled end
     end
     -- Reset interface
     subMe.setInterfaceConfiguration(1)
@@ -359,7 +359,7 @@ function beeMaintainer:tick()
 
             if item.batch ~= 0 and (item.stocked - item.toStock) / item.batch >= 0.5 then break end -- Still have over 50% between min and max stock
 
-            if item.statusVal == self.enumStatus.idle and not item.disabled then
+            if item.statusVal == self.enumStatus.idle and not item.disabled and not utils.exists(self.apiaryList, function(elem) return elem.species == item.species end) then
                 for _ = 1, item.parallels do
                     table.insert(self.queensToAdd, { itemLabel = item.label, species = item.species })
                     slots = slots - 1
