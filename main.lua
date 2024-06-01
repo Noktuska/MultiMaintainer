@@ -311,10 +311,12 @@ function main.drawSideArea()
     end
 
     -- MAINTAINER LOGS
+    gpu.setForeground(config.mainFg.value)
+    y = sideArea.top + (sideArea.bottom - sideArea.top) // 2
+    local msStr = tostring(curMaintainer.ticktime) .. "ms"
+    gpu.set(sideArea.left, y, "Logs:")
+    if msStr then gpu.set(sideArea.left + 10, y, msStr) end
     if curMaintainer.logsDirty then
-        gpu.setForeground(config.mainFg.value)
-        y = sideArea.top + (sideArea.bottom - sideArea.top) // 2
-        gpu.set(sideArea.left, y, "Logs:")
         for i, msg in ipairs(curMaintainer.logs) do
             gpu.fill(sideArea.left, y + i, sideArea.right - sideArea.left, 1, " ")
             gpu.set(sideArea.left + 1, y + i, msg)
@@ -551,7 +553,7 @@ while running do
             if maintainer then
                 local startTime = os.time()
                 maintainer:tick()
-                maintainer:log("Last tick: " .. tostring((os.time() - startTime) * 1000 / 6 / 6 / 2) .. "ms")
+                maintainer.ticktime = (os.time() - startTime) * 1000 / 6 / 6 / 2
             end
         end
         tickCounter = 0

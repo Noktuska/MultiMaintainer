@@ -150,7 +150,7 @@ function beeMaintainer:asyncDoWork()
                 for stack in it do
                     if stack.label and stack.size and string.match(stack.label, "Princess") then princessCount = princessCount + stack.size end
                 end
-                self:log("Found " .. tostring(princessCount) .. " Princess(es)")
+                --self:log("Found " .. tostring(princessCount) .. " Princess(es)")
                 if princessCount < item.parallels - queenCount - 1 then coroutine.yield(true, false) end
             until princessCount >= item.parallels - queenCount - 1
 
@@ -186,7 +186,7 @@ function beeMaintainer:asyncDoWork()
                         end
                         curSlot = curSlot + 1
                     end
-                    self:log("Found drones: " .. tostring(foundDrone) .. ", count: " .. tostring(droneCount))
+                    --self:log("Found drones: " .. tostring(foundDrone) .. ", count: " .. tostring(droneCount))
                     if not foundDrone then coroutine.yield(true, false) end     -- Pause coroutine if still waiting for queen to breed
                 until foundDrone
                 local queenSlot = findSlotAsync(sideApiary, elem.species .. " Queen")
@@ -236,7 +236,7 @@ function beeMaintainer:asyncDoWork()
                 if stack.label == elem .. " Queen" then
                     ensureMove(sideChest, sideInterface, 1, curSlot)
                     moved = true
-                    self:log("Removed " .. stack.label .. " Queen")
+                    --self:log("Removed " .. stack.label .. " Queen")
                     -- Reset crafting state and update apiaryList
                     for i = 1, #self.apiaryList do
                         if self.apiaryList[i].species .. " Queen" == stack.label then
@@ -252,7 +252,7 @@ function beeMaintainer:asyncDoWork()
             -- If it wasn't on the to remove list put it back into the input bus
             if not moved then
                 ensureMove(sideChest, sideInput, 1, curSlot)
-                self:log("Kept " .. stack.label .. " Queen")
+                --self:log("Kept " .. stack.label .. " Queen")
             end
         end
         
@@ -260,8 +260,8 @@ function beeMaintainer:asyncDoWork()
     end
 
     -- ADDING NEW BEES TO APIARY
+    self:log("Adding new queens...")
     for _, elem in pairs(self.queensToAdd) do
-        self:log("Adding " .. elem.species .. " Queen to apiary")
         local item = self.items[elem.itemLabel]
         -- Clear database slot
         db.clear(1)
@@ -347,7 +347,6 @@ function beeMaintainer:tick()
                 slots = slots + 1
             end
         end
-        self:log("Removing " .. #self.queensToRemove .. " Queen(s)")
 
         -- GET QUEENS TO ADD TO APIARY
         table.sort(self.diffList, function(l, r) if l.diff == r.diff then return l.item.label < r.item.label else return l.diff < r.diff end end) -- Sort items by how low they got on stock in compared to toStock
@@ -374,6 +373,7 @@ function beeMaintainer:tick()
         -- Do apiary logic if 1) we need to add/swap any queens or 2) All Queens are done producing
         if #self.queensToAdd > 0 or #self.queensToRemove > 0 then
             self:log("Adding " .. #self.queensToAdd .. " Queens to apiary")
+            self:log("Removing " .. #self.queensToRemove .. " Queen(s)")
 
             -- Modifying the apiary as well as breeding new Queens takes time so we do it "async" with a coroutine
             self.asyncRoutine = coroutine.create(beeMaintainer.asyncDoWork)
@@ -402,8 +402,6 @@ function beeMaintainer:tick()
         item.stocked = 0
     end
     item.dirty = true
-
-    self:log("Checked item " .. item.label .. " [" .. item.stocked .. "]")
 
     table.insert(self.diffList, { item = item, diff = item.stocked - item.toStock })
     return true
