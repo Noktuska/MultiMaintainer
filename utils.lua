@@ -11,6 +11,13 @@ function utils.shortNumString(num)
     return tostring(num)
 end
 
+function utils.exists(t, pred)
+    for _, elem in pairs(t) do
+        if pred(elem) then return true end
+    end
+    return false
+end
+
 function utils.removeByValue(t, value)
     local i = 1
     for _, v in pairs(t) do
