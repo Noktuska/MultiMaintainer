@@ -351,9 +351,11 @@ function beeMaintainer:tick()
 
         -- GET QUEENS TO ADD TO APIARY
         table.sort(self.diffList, function(l, r) if l.diff == r.diff then return l.item.label < r.item.label else return l.diff < r.diff end end) -- Sort items by how low they got on stock in compared to toStock
+        local firstItem = self.diffList[1] and self.diffList[1].item
+        
         self.queensToAdd = {}
         local i = 1
-        while slots > 0 do  -- Try to fill the apiary
+        while firstItem and firstItem.stocked < firstItem.toStock and slots > 0 do  -- Try to fill the apiary to max if at least one item needs maintaining
             local item = self.diffList[i] and self.diffList[i].item
             if not item then break end  -- Ran out of items on the itemList
 
@@ -424,7 +426,8 @@ function beeMaintainer:getRenderTable(width)
         { x = width - 9, label = "Batch", get = function(item) return utils.shortNumString(item.batch) end }, -- width - shortNumStringLen - padding
         { x = width - 20, label = "To Stock", get = function(item) return "/ " .. utils.shortNumString(item.toStock) end },   -- batch - "/ " - shortNumString - padding
         { x = width - 29, label = "Stocked", get = function(item) return utils.shortNumString(item.stocked) end },     -- toStock - shortNumString - padding
-        { x = width - 47, label = "Bee Species", get = function(item) return item.species .. " Bee" end }
+        { x = width - 47, label = "Bee Species", get = function(item) return item.species .. " Bee" end },
+        { x = width - 56, label = "Parallel", get = function(item) return utils.shortNumString(item.parallels) end }
     }
 end
 
