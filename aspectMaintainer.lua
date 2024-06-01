@@ -5,10 +5,12 @@ local aspectMaintainer = maintainer.new()
 aspectMaintainer.config = {
     meAddress = { label = "ME Address", type = "string", value = nil },
     redstone = { label = "Redstone component", type = "string", value = nil },
+    ignoreRedstoneInput = { label = "Ingore redstone input", type = "int", value = 0 },
     outputWhenLow = { label = "Redstone on low essentia", type = "int", value = 0 }
 }
 
 function aspectMaintainer:shouldTick()
+    if self.config.ignoreRedstoneInput.value ~= 0 then return true end
     if not self.config.redstone.value then return true end
     local redstone = require("component").proxy(self.config.redstone.value)
     if not redstone then return true end
