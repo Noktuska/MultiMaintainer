@@ -543,6 +543,7 @@ eventHandler.registerButton("btMainArea", mainArea, onMainAreaClick)
 
 local tickCounter = 0
 local renderCounter = 0
+local computer = require("computer")
 while running do
     if needRedraw and not inputForm.created then redraw() end
 
@@ -565,6 +566,8 @@ while running do
         main.drawSideArea()
         renderCounter = 0
     end
+
+    while computer.freeMemory() < computer.totalMemory() / 4 do os.sleep(1) end
 
     os.sleep()
 end
