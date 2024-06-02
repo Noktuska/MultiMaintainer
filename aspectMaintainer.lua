@@ -103,6 +103,7 @@ function aspectMaintainer:craftAspectIfNeeded(aspect, amount, me)
 end
 
 function aspectMaintainer:tick()
+    if not self:shouldTick() then return false end
     local me = nil
     if self.config.meAddress.value then me = require("component").proxy(self.config.meAddress.value) end
     if not me then return false end
