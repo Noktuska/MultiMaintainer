@@ -118,6 +118,7 @@ function beeMaintainer:asyncDoWork()
     if not db then return false, "No database connected" end
     for _, elem in pairs(self.queensToAdd) do
         local item = self.items[elem.itemLabel]
+        if not item then return false, "No item found: " .. elem.itemLabel end
 
         local queenList = subMe.getItemsInNetwork{ label = elem.species .. " Queen" }
         local queenCount = 0
@@ -277,7 +278,7 @@ function beeMaintainer:asyncDoWork()
             -- Mark item as crafting and update apiaryList
             item.statusVal = self.enumStatus.crafting
             table.insert(self.apiaryList, elem)
-        else item.statusVal = self.enumStats.cancelled end
+        else item.statusVal = self.enumStatus.cancelled end
     end
     -- Reset interface
     subMe.setInterfaceConfiguration(1)
